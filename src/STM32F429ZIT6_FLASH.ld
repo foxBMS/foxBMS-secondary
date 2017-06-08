@@ -61,12 +61,12 @@ _Min_Stack_Size = 0x400;; /* required amount of stack */
 MEMORY
 {
 /* FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 2048K */
-FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 1024K-256
-FLASH_HEADER (rx) : ORIGIN = 0x80FFF00, LENGTH = 256
-FLASH_2 (rx)      : ORIGIN = 0x8100000, LENGTH = 1024K
-RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 192K
-CCMRAM (rw)      : ORIGIN = 0x10000000, LENGTH = 64K
-BKP_RAM(rw)      : ORIGIN = 0x40024000, LENGTH = 4K
+FLASH (rx)         : ORIGIN = 0x08000000, LENGTH = 1024K-256
+FLASH_HEADER (rx)  : ORIGIN = 0x080FFF00, LENGTH = 256
+FLASH_2 (rx)       : ORIGIN = 0x08100000, LENGTH = 1024K
+RAM (xrw)          : ORIGIN = 0x20000000, LENGTH = 192K
+CCMRAM (rw)        : ORIGIN = 0x10000000, LENGTH = 64K
+BKP_RAM(rw)        : ORIGIN = 0x40024000, LENGTH = 4K
 }
 
 /* Define output sections */
@@ -84,13 +84,80 @@ SECTIONS
   {
     . = ALIGN(4);
     KEEP(*(.isr_vector)) /* Startup code */
-    . = ALIGN(4);
-  } >FLASH
- _foxBMS_FLASH_end = ORIGIN(FLASH) + LENGTH(FLASH) + LENGTH(FLASH_HEADER);
+    . = ALIGN(16);	 /* note: this must be done as the next section is aligned to 16*/
+  } >FLASH = 0xFF	 /* and the Fill command (0xFF) works only within the output section*/
+                     /* this means the space between the output sections on the target memory could be differently handled */ 
+                     /* by the programming tool or algorithm */
+                     /* flash checksum verification feature needs initialized values of 0xFF in all unused memory areas !!!*/
+
+ _foxBMS_FLASH_end   = ORIGIN(FLASH)   + LENGTH(FLASH) + LENGTH(FLASH_HEADER);
+ _foxBMS_FLASH_2_end = ORIGIN(FLASH_2) + LENGTH(FLASH_2);
+
+_sflash1 = ORIGIN(FLASH);
+_jumpadressvectable = ORIGIN(FLASH) + 4;
 
   .text :
   {
-    . = ALIGN(4);
+/* input path: "...engine...",  section type: "text.<symbolname>"
+   input path: "...general...", section type: "text.<symbolname>"
+*/   
+  
+    . = ALIGN(16);
+      *arm-none-eabi*(.text*)
+      *libgcc.a:(.text*)
+      *libc*.a:(.text*)
+      *libg*.a:(.text*)
+      *limc*.a:(.text*)
+ 
+
+      /**** HAL  ****/
+      *src/hal/*HAL_Driver*(.text*)
+      *libHAL.a:(.text*)
+      
+      *hal.a:(.text*)
+
+
+      /**** CMSIS  ****/
+      *src/hal/CMSIS*(.text*)
+      
+      *CMSIS.a:(.text*)
+
+
+      /**** os  ****/
+      */os/*(.text*)
+      *libOS.a:(.text*)
+      
+      *os.a:(.text*)
+      
+
+      /**** engine  ****/      
+      *src/engine*(.text*)
+      
+      *engine*.a:(.text*)
+
+      
+      /**** general  ****/
+      *src/general*(.text*)
+      
+      *src\\general*(.text*)
+
+
+      /**** module  ****/    
+      *src/module*(.text*)
+      
+      *module.a:(.text*)
+
+      
+      /**** application  ****/
+      *src/application*(.text*)
+      
+      *application.a:(.text*)
+
+
+/*    *src/test*(.text*)
+      *test.a:(.text*)
+*/
+    
     *(.text)           /* .text sections (code) */
     *(.text*)          /* .text* sections (code) */
     *(.glue_7)         /* glue arm to thumb code */
@@ -100,9 +167,9 @@ SECTIONS
     KEEP (*(.init))
     KEEP (*(.fini))
 
-    . = ALIGN(4);
+    . = ALIGN(16);
     _etext = .;        /* define a global symbols at end of code */
-  } >FLASH
+  } >FLASH = 0xFF
 
   /* Constant data goes into FLASH */
   .rodata :
@@ -111,38 +178,39 @@ SECTIONS
     *(.rodata)         /* .rodata sections (constants, strings, etc.) */
     *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
     . = ALIGN(4);
-  } >FLASH
+  } >FLASH = 0xFF
 
   .ARM.extab   : { *(.ARM.extab* .gnu.linkonce.armextab.*) } >FLASH
   .ARM : {
     __exidx_start = .;
     *(.ARM.exidx*)
     __exidx_end = .;
-  } >FLASH
+  } >FLASH = 0xFF
 
   .preinit_array     :
   {
     PROVIDE_HIDDEN (__preinit_array_start = .);
     KEEP (*(.preinit_array*))
     PROVIDE_HIDDEN (__preinit_array_end = .);
-  } >FLASH
+  } >FLASH = 0xFF
   .init_array :
   {
     PROVIDE_HIDDEN (__init_array_start = .);
     KEEP (*(SORT(.init_array.*)))
     KEEP (*(.init_array*))
     PROVIDE_HIDDEN (__init_array_end = .);
-  } >FLASH
+  } >FLASH = 0xFF
   .fini_array :
   {
     PROVIDE_HIDDEN (__fini_array_start = .);
     KEEP (*(SORT(.fini_array.*)))
     KEEP (*(.fini_array*))
     PROVIDE_HIDDEN (__fini_array_end = .);
-  } >FLASH
+  } >FLASH = 0xFF
 
   /* used by the startup to initialize data */
   _sidata = LOADADDR(.data);
+  _sidata = LOADADDR(.data); /* define a global symbol at load address in Flash region for internal RAM data section */
 
   /* Initialized data sections goes into RAM, load LMA copy after code */
   .data : 
@@ -154,8 +222,9 @@ SECTIONS
 
     . = ALIGN(4);
     _edata = .;        /* define a global symbol at data end */
-  } >RAM AT> FLASH
+  } >RAM AT> FLASH = 0xFF
 
+  
   _siccmram = LOADADDR(.ccmram);
 
   /* CCM-RAM section 
@@ -170,14 +239,15 @@ SECTIONS
     _sccmram = .;       /* create a global symbol at ccmram start */
     *(.ccmram)
     *(.ccmram*)
-    
     . = ALIGN(4);
     _eccmram = .;       /* create a global symbol at ccmram end */
-  } >CCMRAM AT> FLASH
+  } >CCMRAM AT> FLASH = 0xFF
+  
+  _eflash1 = _siccmram + (_eccmram - _sccmram);
 
-  /* Uninitialized Backup SRAM data section */
+  /* Uninitialized Backup SRAM section of type bss*/
   . = ALIGN(4);
-  .bkp_ramsect :
+  .bkp_ramsect (NOLOAD) :
   {
  /*   *(.BKP_RAMSection) */
     *(.BKP_RAMSection*)

@@ -80,7 +80,7 @@ void APPL_TSK_Cyclic_10ms(void) {
         ;
     }
 
-    osDelayUntil(os_schedulerstarttime, appl_tskdef_10ms.Phase);
+    osDelayUntil(&os_schedulerstarttime, appl_tskdef_10ms.Phase);
 
     while(1)
     {
@@ -88,7 +88,7 @@ void APPL_TSK_Cyclic_10ms(void) {
 
         APPL_Cyclic_10ms();
 
-        osDelayUntil(currentTime, appl_tskdef_10ms.CycleTime);
+        osDelayUntil(&currentTime, appl_tskdef_10ms.CycleTime);
     }
 }
 
@@ -98,7 +98,7 @@ void APPL_TSK_Cyclic_100ms(void) {
         ;
     }
 
-    osDelayUntil(os_schedulerstarttime, appl_tskdef_100ms.Phase);
+    osDelayUntil(&os_schedulerstarttime, appl_tskdef_100ms.Phase);
 
     while(1)
     {
@@ -106,6 +106,6 @@ void APPL_TSK_Cyclic_100ms(void) {
 
         APPL_Cyclic_100ms();
 
-        osDelayUntil(currentTime, appl_tskdef_100ms.CycleTime);
+        osDelayUntil(&currentTime, appl_tskdef_100ms.CycleTime);
     }
 }

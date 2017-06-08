@@ -1,18 +1,18 @@
 /*!
-	LTC6804-1 Multicell Battery Monitor
-@verbatim	
-	The LTC6804 is a 3rd generation multicell battery stack
-	monitor that measures up to 12 series connected battery
-	cells with a total measurement error of less than 1.2mV. The
-	cell measurement range of 0V to 5V makes the LTC6804
-	suitable for most battery chemistries. All 12 cell voltages
-	can be captured in 290uS, and lower data acquisition rates
-	can be selected for high noise reduction.
-	
-	Using the LTC6804-1, multiple devices are connected in
-	a daisy-chain with one host processor connection for all
-	devices.
-@endverbatim	
+    LTC6804-1 Multicell Battery Monitor
+@verbatim
+    The LTC6804 is a 3rd generation multicell battery stack
+    monitor that measures up to 12 series connected battery
+    cells with a total measurement error of less than 1.2mV. The
+    cell measurement range of 0V to 5V makes the LTC6804
+    suitable for most battery chemistries. All 12 cell voltages
+    can be captured in 290uS, and lower data acquisition rates
+    can be selected for high noise reduction.
+
+    Using the LTC6804-1, multiple devices are connected in
+    a daisy-chain with one host processor connection for all
+    devices.
+@endverbatim
 REVISION HISTORY
 $Revision: 1000 $
 $Date: 2013-12-13 
@@ -65,9 +65,17 @@ Copyright 2013 Linear Technology Corp. (LTC)
 ***********************************************************/
 
 /*================== Includes =============================================*/
-
+/* recommended include order of header files:
+ * 
+ * 1.    include general.h
+ * 2.    include module's own header
+ * 3...  other headers
+ *
+ */
 #include "general.h"
 #include "ltc_pec.h"
+
+#include <stdint.h>
 
 /*================== Constant and Variable Definitions ====================*/
 

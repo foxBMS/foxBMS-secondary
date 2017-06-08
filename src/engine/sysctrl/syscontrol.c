@@ -35,6 +35,7 @@
 #include "syscontrol.h"
 #include "cmsis_os.h"
 #include "diag.h"
+#include "database.h"
 
 /*================== Macros and Definitions ===============================*/
 SYSCTRL_STATE_s sysctrl = {
@@ -365,12 +366,12 @@ static STD_RETURN_TYPE_e SYSCTRL_CheckPendigRequest(void)
 // TODO Review: no check if contactor are still in the needed state for the current sysctrl state
 static void SYSCTRL_StateControl(void)
 {
-    STD_RETURN_TYPE_e sysctrlContInit_ok; // TODO Review: uninitialized variable
+    STD_RETURN_TYPE_e sysctrlContInit_ok = E_OK; // TODO Review: uninitialized variable
 
     switch(sysctrl.state) {
         /****************************SLEEP*******************************************/
         case SYSCTRL_STATE_SLEEP: {
-            SYSCTRL_ALL_CONTACTORS_OFF();
+            //SYSCTRL_ALL_CONTACTORS_OFF();
             SYSCTRL_ECU_GOTOSLEEP();      // TODO currently a dummy macro
             break;
         }
@@ -382,7 +383,7 @@ static void SYSCTRL_StateControl(void)
 
                 case SYSCTRL_STATE_INITIALIZING_SUBSTATE_BASIC_SELF_CHECK: {
                     /* substate 0: starting selfcheck, ongoing selfcheck */
-                    sysctrlContInit_ok = CONT_Init();
+                    //sysctrlContInit_ok = CONT_Init();
                     if(sysctrlContInit_ok == E_OK) {
                         SYSCTRL_STARTPOWERONSELFCHECK(); /* start power on selfcheck, TODO currently a dummy macro */
                         sysctrl.timeout = SYSCTRL_SELFPOWERONCHECK_TIMEOUT;
@@ -468,7 +469,7 @@ static void SYSCTRL_StateControl(void)
                 case SYSCTRL_STATE_IDLE_SUBSTATE_OPEN_INTERLOCK_AND_CONTACTORS:{
                     sysctrl.timeoutidle = SYSCTRL_IDLE_TIMEOUT;
                     SYSCTRL_SETINTERLOCK_OFF();
-                    SYSCTRL_ALL_CONTACTORS_OFF();
+                    //SYSCTRL_ALL_CONTACTORS_OFF();
                     sysctrl.substate = SYSCTRL_STATE_IDLE_SUBSTATE_CHECK_VCU;
                     break;
                 }
@@ -505,7 +506,7 @@ static void SYSCTRL_StateControl(void)
                 case SYSCTRL_STATE_STANDBY_SUBSTATE_OPEN_CONTACTORS: {
 
                     sysctrl.timeout = SYSCTRL_VCUPRESENT_TIMEOUT;
-                    SYSCTRL_ALL_CONTACTORS_OFF();
+                    //SYSCTRL_ALL_CONTACTORS_OFF();
                     SYSCTRL_SETINTERLOCK_ON();
                     sysctrl.substate = SYSCTRL_STATE_STANDBY_SUBSTATE_CHECK_VCU;
                     break;
@@ -539,7 +540,7 @@ static void SYSCTRL_StateControl(void)
         case SYSCTRL_STATE_NORMAL: {
             if ((CONT_GetInterlockFeedback()).feedback == CONT_SWITCH_OFF){
                 SYSCTRL_SETINTERLOCK_OFF();
-                SYSCTRL_ALL_CONTACTORS_OFF();
+                //SYSCTRL_ALL_CONTACTORS_OFF();
                 SYSCTRL_SetState(SYSCTRL_STATE_ERROR, 1);
             }
             else {
@@ -554,16 +555,16 @@ static void SYSCTRL_StateControl(void)
 
                     case SYSCTRL_STATE_NORMAL_SUBSTATE_CHECK_MINUS_MAIN_CONTACTOR: {
                         // check that the negative power line is on
-                        CONT_STATE_MEASUREMENT_s feedbackMinusMain = CONT_GetContactorFeedback(CONT_MINUS_MAIN);
-                        if (feedbackMinusMain.feedback == CONT_SWITCH_ON){
-                            sysctrl.substate = SYSCTRL_STATE_NORMAL_SUBSTATE_SWITCH_PLUS_PRECHARGE_CONTACTOR_ON;//2;
-                        }
-                        else if((sysctrl.timeout == 0) && (feedbackMinusMain.feedback != CONT_SWITCH_ON)){
-                            SYSCTRL_SetState(SYSCTRL_STATE_ERROR,1);
-                        }
-                        else {
-                            sysctrl.timeout--;
-                        }
+                        //CONT_STATE_MEASUREMENT_s feedbackMinusMain = CONT_GetContactorFeedback(CONT_MINUS_MAIN);
+                        //if (feedbackMinusMain.feedback == CONT_SWITCH_ON){
+                        //    sysctrl.substate = SYSCTRL_STATE_NORMAL_SUBSTATE_SWITCH_PLUS_PRECHARGE_CONTACTOR_ON;//2;
+                        //}
+                        //else if((sysctrl.timeout == 0) && (feedbackMinusMain.feedback != CONT_SWITCH_ON)){
+                        //    SYSCTRL_SetState(SYSCTRL_STATE_ERROR,1);
+                        //}
+                        //else {
+                        //    sysctrl.timeout--;
+                        //}
                         break;
                     }
 
@@ -577,17 +578,17 @@ static void SYSCTRL_StateControl(void)
 
                     case SYSCTRL_STATE_NORMAL_SUBSTATE_CHECK_PLUS_PRECHARGE_CONTACTOR: {
                         // check that the precharge power line is on
-                        CONT_STATE_MEASUREMENT_s feedbackPlusPrecharge = CONT_GetContactorFeedback(CONT_PLUS_PRECHARGE);
-                        if (feedbackPlusPrecharge.feedback == CONT_SWITCH_ON){
-                            sysctrl.timeout = SYSCTRL_PRECHARGE_TIMEOUT;
-                            sysctrl.substate = SYSCTRL_STATE_NORMAL_SUBSTATE_CHECK_PRECHARGE;//4;
-                        }
-                        else if((sysctrl.timeout == 0) && (feedbackPlusPrecharge.feedback != CONT_SWITCH_ON)){
-                            SYSCTRL_SetState(SYSCTRL_STATE_ERROR,1);
-                        }
-                        else {
-                            sysctrl.timeout--;
-                        }
+                        //CONT_STATE_MEASUREMENT_s feedbackPlusPrecharge = CONT_GetContactorFeedback(CONT_PLUS_PRECHARGE);
+                        //if (feedbackPlusPrecharge.feedback == CONT_SWITCH_ON){
+                        //    sysctrl.timeout = SYSCTRL_PRECHARGE_TIMEOUT;
+                        //    sysctrl.substate = SYSCTRL_STATE_NORMAL_SUBSTATE_CHECK_PRECHARGE;//4;
+                        //}
+                        //else if((sysctrl.timeout == 0) && (feedbackPlusPrecharge.feedback != CONT_SWITCH_ON)){
+                        //    SYSCTRL_SetState(SYSCTRL_STATE_ERROR,1);
+                        //}
+                        //else {
+                        //    sysctrl.timeout--;
+                        //}
                         break;
                     }
 
@@ -623,40 +624,40 @@ static void SYSCTRL_StateControl(void)
 
                     case SYSCTRL_STATE_NORMAL_SUBSTATE_CHECK_POWERLINE: {
                         // check that the power line is on
-                        CONT_STATE_MEASUREMENT_s feedbackPlusMain = CONT_GetContactorFeedback(CONT_PLUS_MAIN);
-                        CONT_STATE_MEASUREMENT_s feedbackMinusMain = CONT_GetContactorFeedback(CONT_MINUS_MAIN);
-                        if ((CONT_SWITCH_ON == feedbackPlusMain.feedback) &&
-                            (CONT_SWITCH_ON == feedbackMinusMain.feedback)) {
-                            sysctrl.substate = SYSCTRL_STATE_NORMAL_SUBSTATE_LOOP;//7;
-                        }
-                        else if((0 == sysctrl.timeout) &&
-                                (CONT_SWITCH_ON != feedbackPlusMain.feedback) &&
-                                (CONT_SWITCH_ON != feedbackMinusMain.feedback)) {
-                            SYSCTRL_SetState(SYSCTRL_STATE_ERROR,1);
-                        }
-                        else {
-                            sysctrl.timeout--;
-                        }
+                        //CONT_STATE_MEASUREMENT_s feedbackPlusMain = CONT_GetContactorFeedback(CONT_PLUS_MAIN);
+                        //CONT_STATE_MEASUREMENT_s feedbackMinusMain = CONT_GetContactorFeedback(CONT_MINUS_MAIN);
+                        //if ((CONT_SWITCH_ON == feedbackPlusMain.feedback) &&
+                        //    (CONT_SWITCH_ON == feedbackMinusMain.feedback)) {
+                        //    sysctrl.substate = SYSCTRL_STATE_NORMAL_SUBSTATE_LOOP;//7;
+                        //}
+                        //else if((0 == sysctrl.timeout) &&
+                        //        (CONT_SWITCH_ON != feedbackPlusMain.feedback) &&
+                        //        (CONT_SWITCH_ON != feedbackMinusMain.feedback)) {
+                        //    SYSCTRL_SetState(SYSCTRL_STATE_ERROR,1);
+                        //}
+                        //else {
+                        //    sysctrl.timeout--;
+                        //}
                         break;
                     }
 
                     case SYSCTRL_STATE_NORMAL_SUBSTATE_LOOP: {
                         /*NORMAL MODE*/
                         /*if(sysctrl.substate == SYSCTRL_STATE_NORMAL_SUBSTATE_LOOP//7)*/
-                        CONT_STATE_MEASUREMENT_s feedbackPlusMain = CONT_GetContactorFeedback(CONT_PLUS_MAIN);
-                        CONT_STATE_MEASUREMENT_s feedbackMinusMain = CONT_GetContactorFeedback(CONT_MINUS_MAIN);
-                        if ((CONT_SWITCH_ON == feedbackPlusMain.feedback) &&
-                            (CONT_SWITCH_ON == feedbackMinusMain.feedback)) {
-                            sysctrl.timeout = 100;
-                        }
-                        else if(sysctrl.timeout == 0) {
-                            SYSCTRL_SetState(SYSCTRL_STATE_ERROR, 1);
-                        }
-                        else {
-                            sysctrl.timeout--;
-                        }
-                        // bei exit zu anderen erst MAINPLUS OFF und MAINMINUS OFF
-                        // TODO Review: no
+                        //CONT_STATE_MEASUREMENT_s feedbackPlusMain = CONT_GetContactorFeedback(CONT_PLUS_MAIN);
+                        //CONT_STATE_MEASUREMENT_s feedbackMinusMain = CONT_GetContactorFeedback(CONT_MINUS_MAIN);
+                        //if ((CONT_SWITCH_ON == feedbackPlusMain.feedback) &&
+                        //    (CONT_SWITCH_ON == feedbackMinusMain.feedback)) {
+                        //    sysctrl.timeout = 100;
+                        //}
+                        //else if(sysctrl.timeout == 0) {
+                        //    SYSCTRL_SetState(SYSCTRL_STATE_ERROR, 1);
+                        //}
+                        //else {
+                        //    sysctrl.timeout--;
+                        //}
+                        //// bei exit zu anderen erst MAINPLUS OFF und MAINMINUS OFF
+                        //// TODO Review: no
                         break;
                     }
 
@@ -672,13 +673,13 @@ static void SYSCTRL_StateControl(void)
         /******************ERROR**************************************************/
         case SYSCTRL_STATE_ERROR: {
             SYSCTRL_SETINTERLOCK_OFF();
-            SYSCTRL_ALL_CONTACTORS_OFF();
+            //SYSCTRL_ALL_CONTACTORS_OFF();
             break;
         }
 
         /******************PRECHARGEERROR******************************************/
         case SYSCTRL_STATE_PRECHARGE_ERROR: {
-            SYSCTRL_ALL_CONTACTORS_OFF();
+            //SYSCTRL_ALL_CONTACTORS_OFF();
             break;
         }
 

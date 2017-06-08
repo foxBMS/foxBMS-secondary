@@ -7,7 +7,7 @@
  * 1.  Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * We kindly request you to use one or more of the following phrases to refer to foxBMS in your hardware, software, documentation or advertising materials:
@@ -33,13 +33,22 @@
  */
 
 /*================== Includes =============================================*/
+/* recommended include order of header files:
+ *
+ * 1.    include general.h
+ * 2.    include module's own header
+ * 3...  other headers
+ *
+ */
 
 #include "general.h"
+#include "bmsctrl.h"
+
+#include "database.h"
 #include "mcu.h"
 #include "syscontrol.h"
-#include "bmsctrl.h"
+#include "batterycell_cfg.h"
 #include "sox.h"
-#include "bal.h"
 #include "diag.h"
 #include "os.h"
 
@@ -93,6 +102,8 @@ static BMSCTRL_STATEMACH_e BMSCTRL_GetState(void);
 static BMSCTRL_STATE_REQUEST_e BMSCTRL_TransferStateRequest(void);
 static BMSCTRL_STATE_REQUEST_e BMSCTRL_GetStateRequest(void);
 static uint8_t BMSCTRL_CheckReEntrance(void);
+//static uint8_t BMSCTRL_CheckNewCanReq(void);
+//static uint8_t BMSCTRL_CheckCanTiming(void);
 static uint8_t BMSCTRL_CheckMeasDiag(void);
 static void BMSCTRL_GetContactorFeedback(void);
 
@@ -102,10 +113,11 @@ static void BMSCTRL_GetContactorFeedback(void);
 
 void BMSCTRL_Trigger(void) {
     BMSCTRL_STATE_REQUEST_e statereq = BMSCTRL_STATE_NO_REQUEST;
+    //DATA_BLOCK_STATEREQUEST_s canstatereq_tab;
 
     if (BMSCTRL_CheckReEntrance()) return;
 
-    DIAG_SysMonNotify(DIAG_SYSMON_BMSCTRL_ID, 0);        // task is running, state = ok
+    //DIAG_SysMonNotify(DIAG_SYSMON_BMSCTRL_ID, 0);        // task is running, state = ok
 
     if(BMSCTRL_state.timer) {
         if(--BMSCTRL_state.timer) {
@@ -116,7 +128,6 @@ void BMSCTRL_Trigger(void) {
     switch(BMSCTRL_state.state) {
         case BMSCTRL_STATEMACH_UNINITIALIZED:
             BMSCTRL_SAVELASTSTATES();
-            CONT_SwitchInterlockOn();
             statereq = BMSCTRL_TransferStateRequest();
             if (statereq == BMSCTRL_STATE_IDLE_REQUEST){
                 BMSCTRL_MOVE_ON_TO_STATE(0, BMSCTRL_STATEMACH_INITIALIZATION, BMSCTRL_INIT_ENTRY);
@@ -129,20 +140,20 @@ void BMSCTRL_Trigger(void) {
                 // If needed, initializations or checks can be done here
                 // Currently the state machine simply goes on
                 if (TRUE) {
-                    BMSCTRL_MOVE_ON_TO_STATE(BMSCTRL_MS_BEFORE_CHECK, BMSCTRL_STATEMACH_INITIALIZATION, BMSCTRL_INIT_STEP1);
+                    BMSCTRL_MOVE_ON_TO_STATE(0, BMSCTRL_STATEMACH_INITIALIZATION, BMSCTRL_INIT_STEP1);
                 }
                 else{
-                    BMSCTRL_MOVE_ON_TO_STATE(BMSCTRL_MS_BEFORE_CHECK, BMSCTRL_STATEMACH_INITIALIZATION, BMSCTRL_INIT_ENTRY);
+                    BMSCTRL_MOVE_ON_TO_STATE(0, BMSCTRL_STATEMACH_INITIALIZATION, BMSCTRL_INIT_ENTRY);
                 }
             }
             else if (BMSCTRL_state.substate == BMSCTRL_INIT_STEP1){
                 // do some other initialization things for example waiting
                 //BMSCTRL_check something //always go on
                 if (TRUE) { //OK
-                    BMSCTRL_MOVE_ON_TO_STATE(0, BMSCTRL_STATEMACH_INITIALIZATION, BMSCTRL_INIT_STEP2);
+                    BMSCTRL_MOVE_ON_TO_STATE(3000, BMSCTRL_STATEMACH_INITIALIZATION, BMSCTRL_INIT_STEP2);
                 }
                 else{ //NOK
-                    BMSCTRL_MOVE_ON_TO_STATE(0, BMSCTRL_STATEMACH_INITIALIZATION, BMSCTRL_INIT_STEP1);
+                    BMSCTRL_MOVE_ON_TO_STATE(3000, BMSCTRL_STATEMACH_INITIALIZATION, BMSCTRL_INIT_STEP1);
                 }
             }
             else if (BMSCTRL_state.substate == BMSCTRL_INIT_STEP2){
@@ -159,6 +170,18 @@ void BMSCTRL_Trigger(void) {
             break;
         case BMSCTRL_STATEMACH_IDLE:
             BMSCTRL_SAVELASTSTATES();
+            BMSCTRL_MOVE_ON_TO_STATE(0, BMSCTRL_STATEMACH_SOC_INIT_CHECK_MEAS_DIAG, 0);
+            break;
+        case BMSCTRL_STATEMACH_SOC_INIT_CHECK_MEAS_DIAG:
+            BMSCTRL_SAVELASTSTATES();
+            if (BMSCTRL_CheckMeasDiag()) {
+                BMSCTRL_state.errMeasCnt = 0;
+                SOC_Init();
+//                BAL_Init();
+            }
+            else {
+                SOC_Init();
+            }
             BMSCTRL_MOVE_ON_TO_STATE(0, BMSCTRL_STATEMACH_CHECK_MEAS_DIAG, 0);
             break;
         case BMSCTRL_STATEMACH_CHECK_MEAS_DIAG:
@@ -167,6 +190,7 @@ void BMSCTRL_Trigger(void) {
                 if (BMSCTRL_state.errMeasCnt > 0) {
                     BMSCTRL_state.errMeasCnt--;
                 }
+                SYSCTRL_SETINTERLOCK_ON();
             }
             else {
                 if (BMSCTRL_state.errMeasCnt <= BMSCTRL_MAX_MEAS_FAIL_WAIT) {
@@ -175,17 +199,17 @@ void BMSCTRL_Trigger(void) {
             }
             // to prevent opening contactors from single measurement error the following comparison is done
             if (BMSCTRL_state.errMeasCnt >= BMSCTRL_MAX_MEAS_FAIL_WAIT) {
-                CONT_SwitchInterlockOff();
                 BMSCTRL_MOVE_ON_TO_STATE(10, BMSCTRL_STATEMACH_BAD_MEAS_DIAG, 0);
             }
             else {
-                BMSCTRL_MOVE_ON_TO_STATE(10, BMSCTRL_STATEMACH_CHECK_MEAS_DIAG, 0);
+                BMSCTRL_MOVE_ON_TO_STATE(10, BMSCTRL_STATEMACH_CHECK_CANTIMING, 0);
             }
             break;
         case BMSCTRL_STATEMACH_BAD_MEAS_DIAG:
             BMSCTRL_SAVELASTSTATES();
-            //stay here until reset
-            BMSCTRL_MOVE_ON_TO_STATE(10, BMSCTRL_STATEMACH_BAD_MEAS_DIAG, 0);
+            //SYSCTRL_SetStateRequest(SYSCTRL_STATE_REQ_ERROR);       // FIXME check return value whether request is accepted and stay here and retry if not
+            SYSCTRL_SETINTERLOCK_OFF();
+            BMSCTRL_MOVE_ON_TO_STATE(10, BMSCTRL_STATEMACH_CHECK_MEAS_DIAG, 0);
             break;
         default:
             BMSCTRL_state.errRequestCnt++;
@@ -294,6 +318,69 @@ static uint8_t BMSCTRL_CheckReEntrance(void) {
 }
 
 
+/**
+ * @brief   Checks if the CAN messages come in the specified time window
+ *
+ * if actual time stamp- previous time stamp is > 96 and < 104 check is good
+ * else the check is bad
+ *
+ * @return  TRUE if timing is in tolerance range, FLASE if not
+ */
+//static uint8_t BMSCTRL_CheckCanTiming(void) {
+//    uint8_t retVal = FALSE;
+//    DATA_BLOCK_STATEREQUEST_s canstatereq_tab;
+//    uint32_t current_time;
+//
+//    current_time = MCU_GetTimeStamp();
+//    DATA_GetTable(&canstatereq_tab, DATA_BLOCK_ID_STATEREQUEST);
+//
+//    //Is the BMS still getting CAN messages?
+//    if ((current_time-canstatereq_tab.timestamp) <= 105){
+//        if (((canstatereq_tab.timestamp - canstatereq_tab.previous_timestamp) >= 95) &&
+//                ((canstatereq_tab.timestamp - canstatereq_tab.previous_timestamp) <= 105)){
+//            retVal = TRUE;
+//        }
+//        else {
+//            retVal = FALSE;
+//        }
+//    }
+//    else{
+//        retVal = FALSE;
+//    }
+//#if BMSCTRL_CAN_TIMING_TEST == TRUE
+//
+//    return retVal;
+//#else
+//    retVal = TRUE;
+//    return retVal;
+//#endif
+//}
+
+/**
+ * @brief   check if new request is pending via CAN and no precharge error has been detected
+ *
+ * @return  TRUE if new request is pending, FALSE if not
+ */
+//static uint8_t BMSCTRL_CheckNewCanReq(void) {
+//    DATA_BLOCK_STATEREQUEST_s canstatereq_tab;
+//    SYSCTRL_STATEMACH_e sysctrlstate;
+//    sysctrlstate = SYSCTRL_GetState();
+//    DATA_GetTable(&canstatereq_tab, DATA_BLOCK_ID_STATEREQUEST);
+//    if (canstatereq_tab.state_request_pending != 0) {
+//        if (sysctrlstate == SYSCTRL_STATE_PRECHARGE_ERROR) {
+//            if (canstatereq_tab.state_request == 8) { // FIXME what is this magic 8??
+//                return TRUE;
+//            }
+//            else
+//                return FALSE;
+//        }
+//        else {
+//            return TRUE;
+//        }
+//    }
+//    else
+//        return FALSE;
+//}
 
 /**
  * @brief   checks the abidance by the safe operating area
@@ -330,23 +417,23 @@ static uint8_t BMSCTRL_CheckMeasDiag(void) {
     }
 #endif
 
-    if (minmax.temperature_max > BMSCTRL_TEMPMAX){
+    if (minmax.temperature_max > BC_TEMPMAX){
         error_tab.error_hightemp = 1;
         retVal = FALSE;
     }
-    if (minmax.temperature_min < BMSCTRL_TEMPMIN) {
+    if (minmax.temperature_min < BC_TEMPMIN) {
         error_tab.error_lowtemp = 1;
         retVal = FALSE;
     }
-    if (minmax.voltage_max > BMSCTRL_VOLTMAX) {
+    if (minmax.voltage_max > BC_VOLTMAX) {
         error_tab.error_highvolt = 1;
         retVal = FALSE;
     }
-    if (minmax.voltage_min < BMSCTRL_VOLTMIN) {
+    if (minmax.voltage_min < BC_VOLTMIN) {
         error_tab.error_lowvolt = 1;
         retVal = FALSE;
     }
-    if (curr_tab.current > BMSCTRL_CURRENTMAX) {
+    if (curr_tab.current > BC_CURRENTMAX) {
         error_tab.error_overcurrent_charge = 1;
         retVal = FALSE;
     }
@@ -374,16 +461,16 @@ static uint8_t BMSCTRL_CheckMeasDiag(void) {
 static void BMSCTRL_GetContactorFeedback(void) {
     uint8_t contactor_state = 0;
     CONT_STATE_MEASUREMENT_s Plus_Main, Plus_Main_Precharge, Minus_Main;
-    (void) CONT_AcquireContactorAndInterlockFeedbacks();
+    //(void) CONT_AcquireContactorAndInterlockFeedbacks();
     /*
      * after calling CONT_AcquireContactorAndInterlockFeedbacks()
      * you can use
      *      Plus_Main = use cont_contactor_states[contactor].measurement.feedback
      * to get the latest measurement
      */
-    Plus_Main = CONT_GetContactorFeedback(CONT_PLUS_MAIN);
-    Plus_Main_Precharge = CONT_GetContactorFeedback(CONT_PLUS_PRECHARGE);
-    Minus_Main = CONT_GetContactorFeedback(CONT_MINUS_MAIN);
+    //Plus_Main = CONT_GetContactorFeedback(CONT_PLUS_MAIN);
+    //Plus_Main_Precharge = CONT_GetContactorFeedback(CONT_PLUS_PRECHARGE);
+    //Minus_Main = CONT_GetContactorFeedback(CONT_MINUS_MAIN);
 
     DATA_GetTable(&canerr_tab, DATA_BLOCK_ID_CANERRORSIG);
 

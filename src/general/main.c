@@ -7,7 +7,7 @@
  * 1.  Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * We kindly request you to use one or more of the following phrases to refer to foxBMS in your hardware, software, documentation or advertising materials:
@@ -24,19 +24,16 @@
  * @file    main.c
  * @author  foxBMS Team
  * @date    26.08.2015 (date of creation)
- *
- * ...
- * ...
- * ...
- *
  * @ingroup GENERAL
+ * @prefix  none
  *
- * @brief Main function
+ * @brief   Main function
  *
  */
 
 
 /*================== Includes =============================================*/
+#include "general.h"
 #include "main.h"
 #include "stm32f4xx_hal.h"
 #include "os.h"
@@ -50,13 +47,8 @@
 #include "spi.h"
 #include "timer.h"
 #include "led.h"
-#include "adc.h"
 #include "bkpsram.h"
-
-#include "uart.h"
-#include "com.h"
 #include "chksum.h"
-
 #include "diag.h"
 #include "mcu.h"
 #include "wdg.h"
@@ -81,29 +73,32 @@ void BOOT_Init(void);
 int main(void)
 {
     HAL_Init();         /* STM32F4xx HAL library initialization */
-    //RTC_Init();
+    RTC_Init();
 #if BUILD_MODULE_ENABLE_WATCHDOG
-    WDG_Init();
-    WDG_IWDG_Start();
+    WDG_Init();        /* initialize and start watchdog*/
 #endif
-    //BKP_SRAM_Init();    // at this point diagnosis event memory in BKP_SRAM will be available
+    BKP_SRAM_Init();    // at this point diagnosis event memory in BKP_SRAM will be available
     SystemClock_Config();
 
-    //DIAG_Init(&diag_dev);
+    DIAG_Init(&diag_dev);
     BOOT_Init();
     IO_Init(&io_cfg[0]);
 
-    //IO_TogglePin(LED_DEBUG_1);
+#if BUILD_MODULE_ENABLE_SAFETY_FEATURES == 0
+    IO_TogglePin(LED_DEBUG_1);
+    os_safety_state = OS_SAFETY_FEATURE_DISABLED;
+#else
+    os_safety_state = OS_SAFETY_FEATURE_ENABLED;
+#endif
 
     DMA_Init(&dma_devices[0]);
     SPI_Init(&spi_devices[0]);
-
-    //TIM_Init();
-#if BUILD_MODULE_ENABLE_UART
-    //UART_Init();
-#endif
+    TIM_Init();
     NVIC_PreOsInit();
+
+#if BUILD_MODULE_ENABLE_SAFETY_FEATURES == 0
     LED_Init();
+#endif
     //ADC_Init(adc_devices);
 
     /* Initialize mutexes, events and tasks */
@@ -114,7 +109,7 @@ int main(void)
     /* Initialize interrupts */
     NVIC_PreOsInit();
 
-    if(CHK_Flashchecksum(&ver_sw_validation))
+    if(CHK_Flashchecksum(&ver_sw_validation)==E_OK)
     {
         chk_status.checksumstatus = CHK_CHECKSUM_PASSED;
     }
@@ -122,10 +117,10 @@ int main(void)
     {
         chk_status.checksumstatus = CHK_CHECKSUM_FAILED;
         if(DIAG_HANDLER_RETURN_OK != DIAG_Handler(DIAG_CH_FLASHCHECKSUM, DIAG_EVENT_NOK, 0, NULL))
-            while(1) { ;}
+        {
+            ;
+        }
     }
-
-    COM_StartupInfo();
 
     os_boot = OS_INIT_OSSTARTKERNEL;    // start scheduler
     osKernelStart();                    // osKernelStart() should never return 
@@ -164,20 +159,3 @@ void BOOT_Init(void)
     //@todo akdere: check diagnosis memory
 }
 
-#ifdef  USE_FULL_ASSERT
-/**
-  * @brief      runtime error report function of HAL's parameter check: assert_param()
-  *             where the assert_param error has occurred.
-  * @param      file: pointer to the source file name
-  * @param      line: assert_param error line source number
-  * @retval     void
-  */
-void assert_failed(uint8_t* file, uint32_t line)
-{
-    /* Infinite loop */
-    while (1)
-    {
-        ;
-    }
-}
-#endif

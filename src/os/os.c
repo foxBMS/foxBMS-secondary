@@ -7,7 +7,7 @@
  * 1.  Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * We kindly request you to use one or more of the following phrases to refer to foxBMS in your hardware, software, documentation or advertising materials:
@@ -27,7 +27,7 @@
  * @ingroup OS
  * @prefix  OS
  *
- * @brief Implementation of the tasks used by the system
+ * @brief   Implementation of the tasks used by the system
  *
  */
 
@@ -39,7 +39,7 @@
 #include "database.h"
 #include "syscontrol.h"
 #include "os.h"
-#include "eepr.h"
+
 #include "nvic.h"
 #include "cansignal.h"
 #include "can.h"
@@ -51,6 +51,7 @@
 
 /*================== Constant and Variable Definitions ====================*/
 OS_BOOT_STATE_e os_boot;
+OS_BOOT_STATE_e os_safety_state;
 OS_TIMER_s os_timer;
 
 /**
@@ -64,6 +65,10 @@ static void OS_TimerTrigger(void);
 /*================== Function Implementations =============================*/
 
 void OS_TaskInit() {
+
+    // Configuration of RTOS Queues
+    os_boot = OS_ENG_CREATE_QUEUES;
+    ENG_CreateQueues();
 
     // Configuration of RTOS Mutexes
     os_boot = OS_ENG_CREATE_MUTEX;
@@ -117,7 +122,7 @@ void OS_TSK_Cyclic_1ms(void) {
         ;
     }
 
-    osDelayUntil(os_schedulerstarttime, eng_tskdef_cyclic_1ms.Phase);
+    osDelayUntil(&os_schedulerstarttime, eng_tskdef_cyclic_1ms.Phase);
 
     while(1) {
 
@@ -126,7 +131,7 @@ void OS_TSK_Cyclic_1ms(void) {
         OS_TimerTrigger();        // Increment system timer os_timer
         ENG_TSK_Cyclic_1ms();
 
-        osDelayUntil(currentTime, eng_tskdef_cyclic_1ms.CycleTime);
+        osDelayUntil(&currentTime, eng_tskdef_cyclic_1ms.CycleTime);
     }
 
 }
@@ -138,7 +143,7 @@ void OS_TSK_Cyclic_10ms(void) {
         ;
     }
 
-    osDelayUntil(os_schedulerstarttime, eng_tskdef_cyclic_10ms.Phase);
+    osDelayUntil(&os_schedulerstarttime, eng_tskdef_cyclic_10ms.Phase);
 
     while(1) {
 
@@ -146,7 +151,7 @@ void OS_TSK_Cyclic_10ms(void) {
 
         ENG_TSK_Cyclic_10ms();
 
-        osDelayUntil(currentTime, eng_tskdef_cyclic_10ms.CycleTime);
+        osDelayUntil(&currentTime, eng_tskdef_cyclic_10ms.CycleTime);
     }
 
 }
@@ -156,7 +161,7 @@ void OS_TSK_Cyclic_100ms(void) {
     while (os_boot != OS_SYSTEM_RUNNING) {
         ;
     }
-    osDelayUntil(os_schedulerstarttime, eng_tskdef_cyclic_100ms.Phase);
+    osDelayUntil(&os_schedulerstarttime, eng_tskdef_cyclic_100ms.Phase);
 
     while(1) {
 
@@ -164,10 +169,47 @@ void OS_TSK_Cyclic_100ms(void) {
 
         ENG_TSK_Cyclic_100ms();
 
-        osDelayUntil(currentTime, eng_tskdef_cyclic_100ms.CycleTime);
+        osDelayUntil(&currentTime, eng_tskdef_cyclic_100ms.CycleTime);
     }
 
 }
+
+
+void OS_TSK_EventHandler(void) {
+
+    while (os_boot != OS_SYSTEM_RUNNING) {
+        ;
+    }
+    osDelayUntil(&os_schedulerstarttime, eng_tskdef_eventhandler.Phase);
+
+    while(1) {
+
+        uint32_t currentTime = osKernelSysTick();
+
+        ENG_TSK_EventHandler();
+
+        osDelayUntil(&currentTime, eng_tskdef_eventhandler.CycleTime);
+    }
+}
+
+void OS_TSK_Diagnosis(void) {
+
+    while (os_boot != OS_SYSTEM_RUNNING) {
+        ;
+    }
+    osDelayUntil(&os_schedulerstarttime, eng_tskdef_diagnosis.Phase);
+
+    while(1) {
+
+        uint32_t currentTime = osKernelSysTick();
+
+        ENG_TSK_Diagnosis();
+
+        osDelayUntil(&currentTime, eng_tskdef_diagnosis.CycleTime);
+    }
+
+}
+
 
 
 void OS_PostOSInit(void) {
@@ -175,128 +217,16 @@ void OS_PostOSInit(void) {
     uint16_t timeout_cnt = 0;
     uint8_t err_type = 0;
     STD_RETURN_TYPE_e ret_val = E_NOT_OK;
-    EEPR_RETURNTYPE_e eepr_ret_val = EEPR_ERROR;
 
     os_boot = OS_RUNNING;
 
     NVIC_PostOsInit();
+#ifdef HAL_SDRAM_MODULE_ENABLED
     SDRAM_Init();
+#endif
     CAN_Init();
-#if CANS_USE_CAN_NODE2
-    IO_WritePin(PIN_MCU_1_CAN_0_TRANS_STANDBY_CONTROL, IO_PIN_SET);
-#endif
-#if CANS_USE_CAN_NODE1
-    //IO_WritePin(PIN_MCU_1_CAN_1_TRANS_STANDBY_CONTROL, IO_PIN_SET);
-#endif
 
     os_boot = OS_EEPR_INIT;
-
-    // initialize eeprom driver
-    timeout_cnt = 0;
-    while (EEPR_GetState() != EEPR_IDLE) {
-
-        if (timeout_cnt > 50) {   // timeout: 50ms (normal needed time: 5ms)
-
-           // eeprom not usable, no eeprom data available
-            err_type|=0x01;     // possible reasons: SPI busy, eeprom hardware in busy state or defect
-            break;
-        }
-
-        timeout_cnt++;
-        EEPR_StateTrigger();
-        osDelay(1);             // wait 1ms for next call of eeprom trigger
-    }
-
-    if(err_type == 0) {
-
-        // read eeprom data
-        eepr_ret_val = EEPR_StateRequest(EEPR_READMEMORY);    // Read EEPROM
-        if(eepr_ret_val != EEPR_OK)
-            err_type|=0x02;
-
-        timeout_cnt = 0;
-        while (EEPR_GetState() != EEPR_IDLE) {
-
-            if (timeout_cnt > EEPR_GetReadTime()) {   // timeout (depending on data length)
-
-                err_type|=0x04;
-                DIAG_Handler(DIAG_CH_POSTOSINIT_FAILURE,DIAG_EVENT_NOK,0, NULL); // eeprom data not readable
-                break;
-            }
-
-            timeout_cnt++;
-            EEPR_StateTrigger();
-            osDelay(1);      //wait 1ms for next call of eeprom trigger
-        }
-    } else {
-
-        DIAG_Handler(DIAG_CH_POSTOSINIT_FAILURE, DIAG_EVENT_NOK, 1, NULL);   // no initialization of eeprom hardware possible
-    }
-
-    if(err_type == 0) {
-        // eeprom has been read succesfully
-
-        if((RTC_NVMRAM_DATAVALID_VARIABLE == 0) || (EEPR_BkpSramCheckChksum() != 0) ) {
-            // NVRAM data corrupt but eeprom data is ok, so do data recovery and overtake data from eeprom
-            EEPR_BkpSramDataRecovery();
-            RTC_NVMRAM_DATAVALID_VARIABLE = 1;      // validate NVNRAM data
-        } else {
-
-           //both areas are valid so take NVRAM data and update eeprom values
-            EEPR_UpdateEepromData();      // do update eeprom data
-            eepr_ret_val = EEPR_StateRequest(EEPR_WRITEMEMORY);    // Write EEPROM
-            if(eepr_ret_val != EEPR_OK)
-                err_type|=0x08;
-
-            timeout_cnt = 0;
-            while (EEPR_GetState() != EEPR_IDLE) {
-
-                if (timeout_cnt > EEPR_GetWriteTime()) {   // timeout (depending on data length)
-
-                    err_type|=0x10;
-                    DIAG_Handler(DIAG_CH_POSTOSINIT_FAILURE,DIAG_EVENT_NOK, 2, NULL); // eeprom data not writable
-                    break;
-                }
-
-                timeout_cnt++;
-                EEPR_StateTrigger();
-                osDelay(1);      //wait 1ms for next call of eeprom trigger
-            }
-        }
-    } else {
-        // no eeprom data available
-
-        if((RTC_NVMRAM_DATAVALID_VARIABLE == 0) || (EEPR_BkpSramCheckChksum() != 0) ) {
-
-            // and NVM data corrupt, so take default values
-            EEPR_BkpSramDefaultDataRecovery();
-            RTC_NVMRAM_DATAVALID_VARIABLE = 1;      // validate NVNRAM data
-        }
-
-        if(err_type == 0x04) {
-
-            //eeprom read error (checksum error)
-            EEPR_UpdateEepromData();      // do update eeprom data
-            eepr_ret_val = EEPR_StateRequest(EEPR_WRITEMEMORY);    // Write EEPROM
-            if(eepr_ret_val != EEPR_OK)
-                err_type|=0x08;
-
-            timeout_cnt = 0;
-            while (EEPR_GetState() != EEPR_IDLE) {
-
-                if (timeout_cnt > EEPR_GetWriteTime()) {   // timeout (depending on data length)
-
-                    err_type|=0x10;
-                    DIAG_Handler(DIAG_CH_POSTOSINIT_FAILURE,DIAG_EVENT_NOK,3, NULL); // eeprom data not writable
-                    break;
-                }
-
-                timeout_cnt++;
-                EEPR_StateTrigger();
-                osDelay(1);      //wait 1ms for next call of eeprom trigger
-            }
-        }
-    }
 
     os_boot = OS_SYSCTRL_INIT;
     // Init SysControl:

@@ -7,7 +7,7 @@
  * 1.  Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * We kindly request you to use one or more of the following phrases to refer to foxBMS in your hardware, software, documentation or advertising materials:
@@ -36,6 +36,7 @@
 
 /*================== Includes =============================================*/
 #include "diag_cfg.h"
+#include "batterysystem_cfg.h"
 
 /*================== Macros and Definitions ===============================*/
 
@@ -124,9 +125,9 @@ typedef struct {
  * structure contains number of switching actions for each contactor
  */
 typedef struct {
-    uint16_t cont_switch_closed[NR_OF_CONTACTORS];
-    uint16_t cont_switch_opened[NR_OF_CONTACTORS];
-    uint16_t cont_switch_opened_hard_at_current[NR_OF_CONTACTORS];
+    uint16_t cont_switch_closed[BS_NR_OF_CONTACTORS];
+    uint16_t cont_switch_opened[BS_NR_OF_CONTACTORS];
+    uint16_t cont_switch_opened_hard_at_current[BS_NR_OF_CONTACTORS];
     uint16_t errcntreported;                                        /*!<  number of hard switches occurred since last call of DIAG_PrintContactorInfo */
 } DIAG_CONTACTOR_s;
 
@@ -163,11 +164,13 @@ extern DIAG_FAILURECODE_s diag_fc;
 
 /**
  * @brief   DIAG_Handler provides generic error handling, based on diagnosis group.
- *
+   @ingroup API_DIAG
+
  * This function calls the handler functions depending on the diagnosis group of call.
  * It needs to get called in every function which wants to apply some kind of diagnosis handling.
  * According to its return value further treatment is either left to the calling module itself, or
  * can be done in the callback function defined in diag_cfg.c
+ *
  *
  * @param   diag_ch_id: event ID of the event that has occurred
  * @param   event:      event that occurred (OK, NOK, RESET)
@@ -239,4 +242,4 @@ extern void DIAG_SysMonNotify(DIAG_SYSMON_MODULE_ID_e module_id, uint32_t state)
 
 /*================== Function Implementations =============================*/
 
-#endif   // DIAG_H_
+#endif /* DIAG_H_ */

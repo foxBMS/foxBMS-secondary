@@ -37,13 +37,10 @@
 #include "bmsctrl.h"
 #include "can.h"
 #include "cansignal.h"
-#include "isoguard.h"
-#include "com.h"
 #include "led.h"
 #include "sox.h"
-#include "adc.h"
 #include "wdg.h"
-#include "bal.h"
+#include "intermcu.h"
 
 /*================== Macros and Definitions ===============================*/
 
@@ -57,9 +54,9 @@
 /*================== Function Implementations =============================*/
 
 void ENG_Init(void) {
-    //SOF_Init();
     //ISO_Init();
-    BMSCTRL_SetStateRequest(BMSCTRL_STATE_IDLE_REQUEST);
+    //SOF_Init();
+
 }
 
 void ENG_TSK_Cyclic_1ms(void) {
@@ -69,42 +66,84 @@ void ENG_TSK_Cyclic_1ms(void) {
 }
 
 void ENG_TSK_Cyclic_10ms(void) {
+    static uint8_t BMS_init = 0;
+
     //SYSCTRL_Trigger(SYS_MODE_CYCLIC_EVENT);
     BMSCTRL_Ctrl();
     //CANS_MainFunction();
-#if CANS_USE_CAN_NODE1
+#if CAN_USE_CAN_NODE0
+    //CAN_TxMsgBuffer(CAN_NODE0);
+#endif
+#if CAN_USE_CAN_NODE1
     //CAN_TxMsgBuffer(CAN_NODE1);
 #endif
-#if CANS_USE_CAN_NODE2
-    //CAN_TxMsgBuffer(CAN_NODE2);
-#endif
+
+#if BUILD_MODULE_ENABLE_SAFETY_FEATURES == 0
     LED_Ctrl();
-    //SOC_Ctrl();
-    //SOF_Ctrl();
-#if BUILD_MODULE_ENABLE_COM
-    //COM_Decoder();
 #endif
 
+    //SOC_Ctrl();
+    //SOF_Ctrl();
+
+    if (BMS_init == 0) {
+        BMSCTRL_SetStateRequest(BMSCTRL_STATE_IDLE_REQUEST);
+        BMS_init = 1;
+    }
+
+
 #if BUILD_MODULE_ENABLE_WATCHDOG
-    WDG_IWDG_Refresh();
+   WDG_IWDG_Refresh();
 #endif
 }
 
 void ENG_TSK_Cyclic_100ms(void) {
     static uint8_t counter = 0;
-    //static uint8_t BMS_init = 0;
+    uint8_t imc_receive = 0;
 
     //ADC_Ctrl();
     //BAL_Ctrl();
 
     // Read every 200ms because of possible jitter and lowest Bender frequency 10Hz -> 100ms
-    if(counter % 2 == 0) {
+    //if(counter % 2 == 0) {
         //ISO_MeasureInsulation();
-    }
+    //}
     // FIXME evaluate if better to put this in ENG_TSK_INIT?
     //if (BMS_init == 0) {
-        //BMSCTRL_SetStateRequest(BMSCTRL_STATE_IDLE_REQUEST);
-        //BMS_init = 1;
+    //    BMSCTRL_SetStateRequest(BMSCTRL_STATE_IDLE_REQUEST);
+    //    BMS_init = 1;
     //}
+    //counter++;
+
+#if BUILD_MODULE_ENABLE_SAFETY_FEATURES == 1 && MCU_SLAVE == 1
+
+    if(counter % 5 == 0) {
+        IO_TogglePin(PIN_MCU_1_DEBUG_LED_0);
+        if(IO_ReadPin(PIN_MCU_1_DEBUG_LED_0)){
+            IMC_sendByte(0x99);
+        } else {
+            IMC_sendByte(0x66);
+        }
+
+        imc_receive = spi_devices[2].Instance->DR;
+
+        if(imc_receive == 0x33) {
+            IO_WritePin(PIN_MCU_1_DEBUG_LED_1, RESET);
+        }
+
+        if(imc_receive == 0x55) {
+            IO_WritePin(PIN_MCU_1_DEBUG_LED_1, SET);
+        }
+
+    }
+#endif
+
     counter++;
+}
+	
+void ENG_TSK_EventHandler(void) {
+    ;
+}
+
+void ENG_TSK_Diagnosis(void) {
+    ;
 }

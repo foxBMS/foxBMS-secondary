@@ -7,7 +7,7 @@
  * 1.  Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * We kindly request you to use one or more of the following phrases to refer to foxBMS in your hardware, software, documentation or advertising materials:
@@ -27,22 +27,31 @@
  * @ingroup APPLICATION
  * @prefix  SOX
  *
- * @brief   SOX module, responsible for calculation of current derating and of SOC
+ * @brief   SOX module responsible for calculation of current derating and of SOC
+ *
  */
 
 
 
 /*================== Includes =============================================*/
+/* recommended include order of header files:
+ * 
+ * 1.    include general.h
+ * 2.    include module's own header
+ * 3...  other headers
+ *
+ */
 #include "general.h"
 #include "sox.h"
-#include "eepr.h"
+
+#include "database.h"
 #include "mcu.h"
 
 /*================== Macros and Definitions ===============================*/
 
 /*================== Constant and Variable Definitions ====================*/
 
-static DATA_BLOCK_CURRENT_s current_tab;
+static DATA_BLOCK_CURRENT_s sox_current_tab;
 static DATA_BLOCK_CELLVOLTAGE_s cellvoltage;
 static DATA_BLOCK_CELLTEMPERATURE_s celltemperature;
 static DATA_BLOCK_MINMAX_s cellminmax;
@@ -90,9 +99,9 @@ static float SOF_MinimumOfThreeValues (float value1,float value2, float value3);
 void SOC_Init(void) {
     SOX_SOC_s soc = {50.0, 50.0, 50.0};
 
-    DATA_GetTable(&current_tab, DATA_BLOCK_ID_CURRENT);
-    soc_previous_current_timestamp = current_tab.timestamp;
-    soc = EEPR_Get_nvsoc();
+    DATA_GetTable(&sox_current_tab, DATA_BLOCK_ID_CURRENT);
+    soc_previous_current_timestamp = sox_current_tab.timestamp;
+    //soc = EEPR_Get_nvsoc();
     sox.soc_mean = soc.mean;
     sox.soc_min = soc.min;
     sox.soc_max = soc.max;
@@ -117,7 +126,7 @@ void SOC_SetValue(float soc_value) {
     soc.mean = soc_value;
     soc.min = soc_value;
     soc.max = soc_value;
-    EEPR_Set_nvsoc(&soc);
+    //EEPR_Set_nvsoc(&soc);
 
     sox.soc_mean = soc.mean;
     sox.soc_min = soc.min;
@@ -144,19 +153,19 @@ void SOC_Init_Lookup_Table(void) {
     SOX_SOC_s soc = {50.0, 50.0, 50.0};
 
     DATA_GetTable(&cellminmax, DATA_BLOCK_ID_MINMAX);
-    DATA_GetTable(&current_tab, DATA_BLOCK_ID_CURRENT);
+    DATA_GetTable(&sox_current_tab, DATA_BLOCK_ID_CURRENT);
 
     soc_mean = SOC_GetFromVoltage((float)(cellminmax.voltage_mean));
     soc_min = SOC_GetFromVoltage((float)(cellminmax.voltage_min));
     soc_max = SOC_GetFromVoltage((float)(cellminmax.voltage_max));
 
-    soc_previous_current_timestamp = current_tab.timestamp;
+    soc_previous_current_timestamp = sox_current_tab.timestamp;
 
-    if (current_tab.current >= 0.0) {
-        current = current_tab.current;
+    if (sox_current_tab.current >= 0.0) {
+        current = sox_current_tab.current;
     }
     else {
-        current = -current_tab.current;
+        current = -sox_current_tab.current;
     }
 
     if (cellminmax.voltage_min>=cellminmax.previous_voltage_min) {
@@ -177,7 +186,7 @@ void SOC_Init_Lookup_Table(void) {
         soc.mean = soc_mean;
         soc.min = soc_min;
         soc.max = soc_max;
-        EEPR_Set_nvsoc(&soc);
+        //EEPR_Set_nvsoc(&soc);
 
         sox.soc_mean = soc_mean;
         sox.soc_min = soc_min;
@@ -189,7 +198,7 @@ void SOC_Init_Lookup_Table(void) {
 
     }
     else {
-        soc = EEPR_Get_nvsoc();
+        //soc = EEPR_Get_nvsoc();
         sox.soc_mean = soc.mean;
         sox.soc_min = soc.min;
         sox.soc_max = soc.max;
@@ -209,19 +218,19 @@ void SOC_Ctrl(void) {
     SOX_SOC_s soc = {50.0, 50.0, 50.0};
     float deltaSOC = 0.0;
 
-    DATA_GetTable(&current_tab, DATA_BLOCK_ID_CURRENT);
+    DATA_GetTable(&sox_current_tab, DATA_BLOCK_ID_CURRENT);
 
-    timestamp = current_tab.timestamp;
-    previous_timestamp = current_tab.previous_timestamp;
+    timestamp = sox_current_tab.timestamp;
+    previous_timestamp = sox_current_tab.previous_timestamp;
 
     if (soc_previous_current_timestamp != timestamp) { // check if current measurement has been updated
         timestep = timestamp - previous_timestamp;
         if (timestep > 0) {
 
-            soc = EEPR_Get_nvsoc();
+            //soc = EEPR_Get_nvsoc();
             // Current in charge direction negative means SOC increasing --> BAT naming, not ROB
-            //soc_mean = soc_mean - (current_tab.current/*mA*/ /(float)SOX_CELL_CAPACITY /*mAh*/) * (float)(timestep) * (10.0/3600.0); /*milliseconds*/
-            deltaSOC = (((current_tab.current)*(float)(timestep)/10))/(3600.0*SOX_CELL_CAPACITY); // ((mA *ms *(1s/1000ms)) / (3600(s/h) *mAh)) *100%
+            //soc_mean = soc_mean - (sox_current_tab.current/*mA*/ /(float)SOX_CELL_CAPACITY /*mAh*/) * (float)(timestep) * (10.0/3600.0); /*milliseconds*/
+            deltaSOC = (((sox_current_tab.current)*(float)(timestep)/10))/(3600.0*SOX_CELL_CAPACITY); // ((mA *ms *(1s/1000ms)) / (3600(s/h) *mAh)) *100%
             soc.mean = soc.mean - deltaSOC;
             soc.min = soc.min - deltaSOC;
             soc.max = soc.max - deltaSOC;
@@ -232,7 +241,7 @@ void SOC_Ctrl(void) {
             if (soc.max > 100.0)  { soc.max = 100.0;  }
             if (soc.max < 0.0)    { soc.max = 0.0;    }
 
-            EEPR_Set_nvsoc(&soc);
+            //EEPR_Set_nvsoc(&soc);
 
             sox.state++;
             sox.soc_mean = soc.mean;
@@ -244,7 +253,7 @@ void SOC_Ctrl(void) {
         }
     } // end check if current measurement has been updated
     //update the variable for the next check
-    soc_previous_current_timestamp = current_tab.timestamp;
+    soc_previous_current_timestamp = sox_current_tab.timestamp;
 }
 
 void SOF_Init(void) {

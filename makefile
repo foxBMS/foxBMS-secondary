@@ -38,14 +38,15 @@ CFLAGS := \
 	-mfpu=fpv4-sp-d16         \
 	-O0                       \
 	-fmessage-length=0        \
+	-fno-common 		  \
 	-fsigned-char             \
 	-ffunction-sections       \
 	-fdata-sections           \
 	-ffreestanding            \
 	-fno-move-loop-invariants \
 	-Wall                     \
-	-g3                       \
-	-std=gnu11                \
+	-g                       \
+	-std=c99                  \
 	-DSTM32F429xx             \
 	-DDEBUG                   \
 	-DUSE_FULL_ASSERT         \
@@ -57,18 +58,19 @@ CFLAGS := \
 # all assembler flags passed through GCC can be applied here
 ASMFLAGS := \
 	-mcpu=cortex-m4 			\
-	-mthumb -mlittle-endian 	\
+	-mthumb -mlittle-endian 		\
 	-mfloat-abi=softfp 			\
 	-mfpu=fpv4-sp-d16 			\
-	-O0							\
+	-O0					\
 	-fmessage-length=0 			\
+	-fno-common 				\
 	-fsigned-char 				\
-	-ffunction-sections 		\
+	-ffunction-sections 			\
 	-fdata-sections 			\
 	-ffreestanding 				\
 	-fno-move-loop-invariants	\
 	-Wall						\
-	-g3 						\
+	-g 						\
 	-x assembler 				\
 	-DSTM32F429xx 				\
 	-DDEBUG 					\
@@ -219,9 +221,9 @@ OBJS := \
 OBJS_HAL := \
 	$(call FILTER,/hal/, $(OBJS))
 
-# create list of all FreeRTOS objects for later use
-OBJS_FRTOS := \
-	$(call FILTER,/FreeRTOS/, $(OBJS))
+# create list of all FreeRTOS and os objects for later use
+OBJS_OS := \
+	$(call FILTER,/os/, $(OBJS))
 
 # remove HAL objects from common objects list, they will be linked into an extra library
 OBJS := \
@@ -229,7 +231,7 @@ OBJS := \
 
 # remove FreeRTOS objects from common objects list, they will be linked into an extra library
 OBJS := \
-	$(call FILTER_OUT,/FreeRTOS/, $(OBJS))
+	$(call FILTER_OUT,/os/, $(OBJS))
 	
 # add linker script to common object list, needed during linking process
 OBJS += \
@@ -260,7 +262,7 @@ $(LIBDIR)/libHAL.a: $(OBJS_HAL)
 	arm-none-eabi-gcc-ar rcs $@ $^
 
 # process FreeRTOS object files, link them into a library and place this library into $(LIBDIR) folder
-$(LIBDIR)/libFRTOS.a: $(OBJS_FRTOS)
+$(LIBDIR)/libOS.a: $(OBJS_OS)
 	arm-none-eabi-gcc-ar rcs $@ $^
 
 # add inputs and outputs from these tool invocations to the build variables
@@ -280,10 +282,10 @@ SECONDARY_SIZE := \
 all: foxbms.elf secondary-outputs
 
 # linker invocation starts here, using the provided flags, objects files and libraries
-foxbms.elf: buildrepo buildrepo_lib $(OBJS) $(USER_OBJS) $(LIBDIR)/libHAL.a $(LIBDIR)/libFRTOS.a
+foxbms.elf: buildrepo buildrepo_lib $(OBJS) $(USER_OBJS) $(LIBDIR)/libHAL.a $(LIBDIR)/libOS.a
 	@echo 'Building target: $@'
 	@echo 'Invoking: Cross ARM C++ Linker'
-	arm-none-eabi-g++ -mcpu=cortex-m4 -mthumb -mlittle-endian -mfloat-abi=softfp -mfpu=fpv4-sp-d16 -O0 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -ffreestanding -fno-move-loop-invariants -Wall -g3 -T "src/STM32F429ZIT6_FLASH.ld" -Xlinker --gc-sections -Wl,-Map,"foxbms.map" --specs=nano.specs -o "foxbms.elf" $(OBJS) $(USER_OBJS) $(LIBDIR)/libHAL.a $(LIBDIR)/libFRTOS.a
+	arm-none-eabi-g++ -mcpu=cortex-m4 -mthumb -mlittle-endian -mfloat-abi=softfp -mfpu=fpv4-sp-d16 -O0 -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -ffreestanding -fno-move-loop-invariants -Wall -g3 -T "src/STM32F429ZIT6_FLASH.ld" -Xlinker --gc-sections -Wl,-Map,"foxbms.map" --specs=nano.specs -o "foxbms.elf" $(OBJS) $(USER_OBJS) $(LIBDIR)/libHAL.a $(LIBDIR)/libOS.a
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -304,7 +306,7 @@ foxbms.lst: foxbms.elf
 # print out infos regarding ram, flash, bss consumption, useful for debugging
 foxbms.siz: foxbms.elf
 	@echo 'Invoking: Cross ARM GNU Print Size'
-	arm-none-eabi-size --format=berkeley $(OBJS) "foxbms.elf"
+	arm-none-eabi-size --format=berkeley "foxbms.elf" $(OBJS) $(OBJS_HAL) $(OBJS_OS)
 	@echo 'Finished building: $@'
 	@echo ' '
 

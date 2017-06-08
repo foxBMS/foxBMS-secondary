@@ -7,7 +7,7 @@
  * 1.  Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * We kindly request you to use one or more of the following phrases to refer to foxBMS in your hardware, software, documentation or advertising materials:
@@ -30,15 +30,14 @@
  * @brief   Database configuration header
  *
  * Provides interfaces to database configuration
+ *
  */
-
 
 #ifndef DATABASE_CFG_H_
 #define DATABASE_CFG_H_
 
 /*================== Includes =============================================*/
-#include "general.h"
-// FIXME circular include
+#include "batterysystem_cfg.h"
 
 /*================== Macros and Definitions ===============================*/
 
@@ -66,6 +65,18 @@ typedef enum {
     DATA_BLOCK_11       = 10,
     DATA_BLOCK_MAX      = DATA_MAX_BLOCK_NR,
 } DATA_BLOCK_ID_TYPE_e;
+
+
+/**
+ * @brief data block access types
+ *
+ * read or write access types
+ */
+typedef enum
+{
+    WRITE_ACCESS    = 0,    /*!< write access to data block   */
+    READ_ACCESS     = 1,    /*!< read access to data block   */
+}DATA_BLOCK_ACCESS_TYPE_e;
 
 /**
  * @brief data block consistency types
@@ -117,20 +128,20 @@ typedef struct {
  * data block struct of cell voltage
  */
 typedef struct {
-    uint16_t voltage[NR_OF_BAT_CELLS];  /*!< unit: mV                           */
-    uint32_t previous_timestamp;        /*!< timestamp of last database entry   */
-    uint32_t timestamp;                 /*!< timestamp of database entry        */
-    uint8_t state;                      /*!< for future use                     */
+    uint16_t voltage[BS_NR_OF_BAT_CELLS];       /*!< unit: mV                                   */
+    uint32_t previous_timestamp;                /*!< timestamp of last database entry           */
+    uint32_t timestamp;                         /*!< timestamp of database entry                */
+    uint8_t state;                              /*!< for future use                             */
 } DATA_BLOCK_CELLVOLTAGE_s;
 
 /**
- * data block struct of cell temperatures
+ * typedef of data block structure of cell temperatures
  */
 typedef struct {
-    int16_t temperature[NR_OF_TEMP_SENSORS];    /*!< unit: degree Celsius               */
-    uint32_t previous_timestamp;                /*!< timestamp of last database entry   */
-    uint32_t timestamp;                         /*!< timestamp of database entry        */
-    uint8_t state;                              /*!< for future use                     */
+    int16_t temperature[BS_NR_OF_TEMP_SENSORS];             /*!< unit: degree Celsius                       */
+    uint32_t previous_timestamp;                            /*!< timestamp of last database entry           */
+    uint32_t timestamp;                                     /*!< timestamp of database entry                */
+    uint8_t state;                                          /*!< for future use                             */
 } DATA_BLOCK_CELLTEMPERATURE_s;
 
 /**
@@ -153,7 +164,7 @@ typedef struct {
 /*  data structure declaration of DATA_BLOCK_BALANCING_CONTROL */
 typedef struct
 {
-    uint16_t value[NR_OF_BAT_CELLS];    /*!< */
+    uint16_t value[BS_NR_OF_BAT_CELLS];    /*!< */
     uint32_t previous_timestamp;        /*!< timestamp of last database entry           */
     uint32_t timestamp;                 /*!< timestamp of database entry                */
     uint8_t enable_balancing;           /*!< Switch for enabling/disabling balancing    */
@@ -166,7 +177,7 @@ typedef struct
  */
 
 typedef struct {
-    uint16_t value[NR_OF_BAT_CELLS];    /*!< unit: mV (opto-coupler output)     */
+    uint16_t value[BS_NR_OF_BAT_CELLS];    /*!< unit: mV (opto-coupler output)     */
     uint32_t previous_timestamp;        /*!< timestamp of last database entry   */
     uint32_t timestamp;                 /*!< timestamp of database entry        */
     uint8_t state;                      /*!< for future use                     */
@@ -174,11 +185,11 @@ typedef struct {
 
 
 /**
- * data block struct of current measurement
+ * typedef of data block structure of current measurement
  */
 typedef struct {
     float current;                                      /*!< unit: to be defined                */
-    float voltage[NR_OF_VOLTAGES_FROM_CURRENT_SENSOR];  /*!<                                    */
+    float voltage[BS_NR_OF_VOLTAGES_FROM_CURRENT_SENSOR];  /*!<                                    */
     uint32_t previous_timestamp;                        /*!< timestamp of last database entry   */
     uint32_t timestamp;                                 /*!< timestamp of database entry        */
     uint8_t state_current;
@@ -260,6 +271,8 @@ typedef struct {
     uint16_t temperature_module_number_max;
     uint16_t temperature_sensor_number_max;
     uint8_t state;
+    uint32_t timestamp;             /*!< timestamp of database entry                                        */
+    uint32_t previous_timestamp;    /*!< timestamp of last database entry                                   */
 } DATA_BLOCK_MINMAX_s;
 
 
@@ -287,4 +300,4 @@ extern DATA_BASE_HEADER_DEV_s data_base_dev;
 
 /*================== Function Implementations =============================*/
 
-#endif   // DATABASE_CFG_H_
+#endif /* DATABASE_CFG_H_ */
