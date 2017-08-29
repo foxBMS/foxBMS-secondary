@@ -1,6 +1,6 @@
 /**
  *
- * @copyright &copy; 2010 - 2016, Fraunhofer-Gesellschaft zur Foerderung der angewandten Forschung e.V. All rights reserved.
+ * @copyright &copy; 2010 - 2017, Fraunhofer-Gesellschaft zur Foerderung der angewandten Forschung e.V. All rights reserved.
  *
  * BSD 3-Clause License
  * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -46,7 +46,7 @@
  *
  * this value is extendible but limitation is done due to RAM consumption and performance
  */
-#define DATA_MAX_BLOCK_NR                11        /* max 11 Blocks actually supported*/
+#define DATA_MAX_BLOCK_NR                15        /* max 15 Blocks actually supported*/
 
 /**
  * @brief data block identification number
@@ -63,6 +63,10 @@ typedef enum {
     DATA_BLOCK_9        = 8,
     DATA_BLOCK_10       = 9,
     DATA_BLOCK_11       = 10,
+    DATA_BLOCK_12       = 11,
+    DATA_BLOCK_13       = 12,
+    DATA_BLOCK_14       = 13,
+    DATA_BLOCK_15       = 14,
     DATA_BLOCK_MAX      = DATA_MAX_BLOCK_NR,
 } DATA_BLOCK_ID_TYPE_e;
 
@@ -129,6 +133,9 @@ typedef struct {
  */
 typedef struct {
     uint16_t voltage[BS_NR_OF_BAT_CELLS];       /*!< unit: mV                                   */
+    uint32_t valid_voltPECs[BS_NR_OF_MODULES];  /*!< bitmask if PEC was okay. 0->ok, 1->error   */
+    uint32_t sumOfCells[BS_NR_OF_MODULES];      /*!< unit: mV                                   */
+    uint8_t valid_socPECs[BS_NR_OF_MODULES];   /*!< 0 -> if PEC okay; 1 -> PEC error           */
     uint32_t previous_timestamp;                /*!< timestamp of last database entry           */
     uint32_t timestamp;                         /*!< timestamp of database entry                */
     uint8_t state;                              /*!< for future use                             */
@@ -139,6 +146,7 @@ typedef struct {
  */
 typedef struct {
     int16_t temperature[BS_NR_OF_TEMP_SENSORS];             /*!< unit: degree Celsius                       */
+    uint16_t valid_temperaturePECs[BS_NR_OF_MODULES];  /*!< bitmask if PEC was okay. 0->ok, 1->error   */
     uint32_t previous_timestamp;                            /*!< timestamp of last database entry           */
     uint32_t timestamp;                                     /*!< timestamp of database entry                */
     uint8_t state;                                          /*!< for future use                             */
@@ -172,6 +180,16 @@ typedef struct
     uint8_t state;                      /*!< for future use                             */
 } DATA_BLOCK_BALANCING_CONTROL_s;
 
+/*  data structure declaration of DATA_BLOCK_USER_IO_CONTROL */
+typedef struct
+{
+    uint8_t value_out[BS_NR_OF_MODULES];   /*!< data to be written to the port expander    */
+    uint8_t value_in[BS_NR_OF_MODULES];    /*!< data read from to the port expander        */
+    uint32_t previous_timestamp;        /*!< timestamp of last database entry           */
+    uint32_t timestamp;                 /*!< timestamp of database entry                */
+    uint8_t state;                      /*!< for future use                             */
+} DATA_BLOCK_USER_IO_CONTROL_s;
+
 /**
  * data block struct of cell balancing feedback
  */
@@ -185,7 +203,18 @@ typedef struct {
 
 
 /**
- * typedef of data block structure of current measurement
+ * data block struct of user multiplexer values
+ */
+
+typedef struct {
+    uint16_t value[8*2*BS_NR_OF_MODULES];              /*!< unit: mV (mux voltage input)       */
+    uint32_t previous_timestamp;                    /*!< timestamp of last database entry   */
+    uint32_t timestamp;                             /*!< timestamp of database entry        */
+    uint8_t state;                                  /*!< for future use                     */
+} DATA_BLOCK_USER_MUX_s;
+
+/**
+ * data block struct of current measurement
  */
 typedef struct {
     float current;                                      /*!< unit: to be defined                */
